@@ -178,8 +178,11 @@ const handleAddPrinterSuccess = () => {
 }
 
 const handleDeletePrinter = (printer) => {
+  console.log('handleDeletePrinter called with:', printer)
   printerToDelete.value = printer
   showDeleteConfirm.value = true
+  console.log('showDeleteConfirm:', showDeleteConfirm.value)
+  console.log('printerToDelete:', printerToDelete.value)
 }
 
 const confirmDelete = async () => {

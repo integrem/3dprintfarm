@@ -241,8 +241,15 @@ const handleSubmit = async () => {
     }
 
     await printersStore.addPrinter(printerData)
+    
+    // Reset form first
+    resetForm()
+    
+    // Emit success event
     emit('success')
-    handleClose()
+    
+    // Close the modal
+    emit('close')
   } catch (err) {
     error.value = err.message || 'Failed to add printer. Please try again.'
   } finally {
@@ -250,20 +257,24 @@ const handleSubmit = async () => {
   }
 }
 
+// Add a separate reset form function
+const resetForm = () => {
+  formData.value = {
+    model: '',
+    ip: '',
+    location: {
+      city: '',
+      suburb: ''
+    },
+    capabilities: []
+  }
+  customCapability.value = ''
+  error.value = ''
+}
+
 const handleClose = () => {
   if (!loading.value) {
-    // Reset form
-    formData.value = {
-      model: '',
-      ip: '',
-      location: {
-        city: '',
-        suburb: ''
-      },
-      capabilities: []
-    }
-    customCapability.value = ''
-    error.value = ''
+    resetForm()
     emit('close')
   }
 }
