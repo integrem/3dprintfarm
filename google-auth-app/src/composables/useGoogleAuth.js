@@ -8,7 +8,7 @@ export const useGoogleAuth = () => {
   const isLoading = ref(false)
   const error = ref('')
 
-  const initializeGoogleSignIn = (buttonId) => {
+  const initializeGoogleSignIn = (buttonId, userType = 'provider') => {
     if (!window.google) {
       error.value = 'Google Identity Services not loaded'
       return
@@ -16,7 +16,7 @@ export const useGoogleAuth = () => {
 
     window.google.accounts.id.initialize({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      callback: handleCredentialResponse
+      callback: (response) => handleCredentialResponse(response, userType)
     })
 
     window.google.accounts.id.renderButton(
@@ -31,7 +31,7 @@ export const useGoogleAuth = () => {
     )
   }
 
-  const handleCredentialResponse = async (response) => {
+  const handleCredentialResponse = async (response, userType) => {
     isLoading.value = true
     error.value = ''
 
@@ -55,11 +55,18 @@ export const useGoogleAuth = () => {
         surname: payload.family_name || '',
         fullName: payload.name,
         imageUrl: payload.picture,
-        emailVerified: payload.email_verified
+        emailVerified: payload.email_verified,
+        userType: userType // Add user type to user data
       }
 
       authStore.setUser(userData)
-      router.push('/dashboard')
+      
+      // Route based on user type
+      if (userType === 'provider') {
+        router.push('/provider-dashboard')
+      } else {
+        router.push('/client-dashboard')
+      }
     } catch (err) {
       console.error('Failed to decode credential:', err)
       error.value = 'Authentication failed. Please try again.'

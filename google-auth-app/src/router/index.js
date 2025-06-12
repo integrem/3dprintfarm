@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LoginPage from '@/components/LoginPage.vue'
 import DashboardPage from '@/components/DashboardPage.vue'
+import ClientDashboard from '@/components/ClientDashboard.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -13,10 +14,25 @@ const router = createRouter({
       meta: { requiresGuest: true }
     },
     {
-      path: '/dashboard',
-      name: 'dashboard',
+      path: '/provider-dashboard',
+      name: 'provider-dashboard',
       component: DashboardPage,
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresProvider: true }
+    },
+    {
+      path: '/client-dashboard',
+      name: 'client-dashboard',
+      component: ClientDashboard,
+      meta: { requiresAuth: true, requiresClient: true }
+    },
+    {
+      path: '/dashboard',
+      redirect: to => {
+        const authStore = useAuthStore()
+        if (authStore.isProvider) return '/provider-dashboard'
+        if (authStore.isClient) return '/client-dashboard'
+        return '/'
+      }
     }
   ]
 })
@@ -28,7 +44,17 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/')
   } else if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    next('/dashboard')
+    if (authStore.isProvider) {
+      next('/provider-dashboard')
+    } else if (authStore.isClient) {
+      next('/client-dashboard')
+    } else {
+      next('/dashboard')
+    }
+  } else if (to.meta.requiresProvider && !authStore.isProvider) {
+    next('/')
+  } else if (to.meta.requiresClient && !authStore.isClient) {
+    next('/')
   } else {
     next()
   }
