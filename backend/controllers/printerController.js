@@ -1,5 +1,32 @@
 const Printer = require('../models/Printer');
 
+exports.deletePrinter = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user } = req; // Assuming you have user info from auth middleware
+    
+    // Find the printer first to check ownership
+    const printer = await Printer.findById(id);
+    
+    if (!printer) {
+      return res.status(404).json({ error: 'Printer not found' });
+    }
+    
+    // Check if the user owns this printer (optional security check)
+    // if (printer.owner !== user.email) {
+    //   return res.status(403).json({ error: 'Unauthorized to delete this printer' });
+    // }
+    
+    await Printer.findByIdAndDelete(id);
+    
+    console.log('[Delete Success]', id);
+    res.status(200).json({ message: 'Printer deleted successfully' });
+  } catch (err) {
+    console.error('[Delete Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.registerPrinter = async (req, res) => {
   try {
     console.log('[RegisterPrinter] Request body:', req.body);
@@ -27,7 +54,7 @@ exports.registerPrinter = async (req, res) => {
 
 exports.getAvailablePrinters = async (req, res) => {
   try {
-    const { city, model, capability, status } = req.query;
+    const { city, model, capability, status, owner } = req.query;
 
     const query = {};
 
@@ -44,6 +71,10 @@ exports.getAvailablePrinters = async (req, res) => {
 
     if (capability) {
         query.capabilities = { $elemMatch: { $regex: capability, $options: 'i' } };
+    }
+
+    if (owner) {
+      query.owner = { $regex: owner }; // partial match
     }
 
     const printers = await Printer.find(query);
