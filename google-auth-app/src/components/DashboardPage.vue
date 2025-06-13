@@ -3,8 +3,25 @@
     <nav class="bg-white shadow">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
-          <div class="flex items-center">
-            <h1 class="text-xl font-semibold">Service Provider Dashboard</h1>
+          <div class="flex">
+            <div class="flex-shrink-0 flex items-center">
+              <h1 class="text-xl font-semibold">3D Print Service Provider</h1>
+            </div>
+            <!-- Navigation Tabs -->
+            <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+              <router-link 
+                to="/service-provider" 
+                class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Dashboard
+              </router-link>
+              <router-link 
+                to="/service-provider/jobs" 
+                class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+              >
+                Print Jobs
+              </router-link>
+            </div>
           </div>
           <div class="flex items-center space-x-4">
             <span class="text-sm text-gray-700">{{ user?.email }}</span>
@@ -36,6 +53,89 @@
                   Welcome back, {{ user?.name }}!
                 </h2>
                 <p class="text-gray-600">{{ user?.email }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats Section -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+              <dt class="text-sm font-medium text-gray-500 truncate">
+                Total Printers
+              </dt>
+              <dd class="mt-1 text-3xl font-semibold text-gray-900">
+                {{ printers.length }}
+              </dd>
+            </div>
+          </div>
+          
+          <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+              <dt class="text-sm font-medium text-gray-500 truncate">
+                Total Jobs
+              </dt>
+              <dd class="mt-1 text-3xl font-semibold text-gray-900">
+                {{ jobStats.totalJobs }}
+              </dd>
+            </div>
+          </div>
+          
+          <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+              <dt class="text-sm font-medium text-gray-500 truncate">
+                Active Jobs
+              </dt>
+              <dd class="mt-1 text-3xl font-semibold text-indigo-600">
+                {{ activeJobsCount }}
+              </dd>
+            </div>
+          </div>
+          
+          <div 
+            @click="$router.push('/service-provider/jobs')"
+            class="bg-white overflow-hidden shadow rounded-lg cursor-pointer hover:shadow-lg transition-shadow"
+          >
+            <div class="p-5">
+              <dt class="text-sm font-medium text-gray-500 truncate">
+                View All Jobs
+              </dt>
+              <dd class="mt-1 text-lg font-semibold text-indigo-600 flex items-center">
+                Go to Jobs 
+                <svg class="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </dd>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Jobs Preview (Optional) -->
+        <div v-if="recentJobs.length > 0" class="bg-white overflow-hidden shadow rounded-lg mb-6">
+          <div class="px-4 py-5 sm:p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium text-gray-900">Recent Jobs</h3>
+              <router-link 
+                to="/service-provider/jobs"
+                class="text-sm text-indigo-600 hover:text-indigo-500"
+              >
+                View all →
+              </router-link>
+            </div>
+            <div class="space-y-3">
+              <div 
+                v-for="job in recentJobs.slice(0, 3)" 
+                :key="job._id"
+                class="flex items-center justify-between py-2 border-b last:border-0"
+              >
+                <div>
+                  <p class="text-sm font-medium text-gray-900">{{ job.fileName }}</p>
+                  <p class="text-sm text-gray-500">{{ job.clientName }}</p>
+                </div>
+                <span :class="getStatusClass(job.status)">
+                  {{ job.status }}
+                </span>
               </div>
             </div>
           </div>
@@ -140,16 +240,18 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePrintersStore } from '@/stores/printers'
 import { useGoogleAuth } from '@/composables/useGoogleAuth'
+import axios from 'axios'
 import PrinterCard from '@/components/PrinterCard.vue'
 import AddPrinterForm from '@/components/AddPrinterForm.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const printersStore = usePrintersStore()
-console.log('Printers store methods:', Object.keys(printersStore))
 const { signOut } = useGoogleAuth()
 
 const user = computed(() => authStore.user)
@@ -161,6 +263,54 @@ const showAddPrinterModal = ref(false)
 const showDeleteConfirm = ref(false)
 const printerToDelete = ref(null)
 const deleteLoading = ref(false)
+
+// Job statistics
+const jobStats = ref({ totalJobs: 0, statusBreakdown: [] })
+const recentJobs = ref([])
+const activeJobsCount = computed(() => {
+  const activeStatuses = ['assigned', 'printing']
+  return jobStats.value.statusBreakdown
+    .filter(stat => activeStatuses.includes(stat._id))
+    .reduce((sum, stat) => sum + stat.count, 0)
+})
+
+// Fetch job statistics
+const fetchJobStats = async () => {
+    console.log('Token:', authStore.token); // Debug token
+  try {
+    const response = await axios.get('http://localhost:3000/api/jobs/provider-stats', {
+      headers: { Authorization: `Bearer ${authStore.token}` }
+    })
+    jobStats.value = response.data
+  } catch (error) {
+    console.error('Error fetching job stats:', error)
+  }
+}
+
+// Fetch recent jobs
+const fetchRecentJobs = async () => {
+    console.log('Token:', authStore.token); // Debug token
+  try {
+    const response = await axios.get('http://localhost:3000/api/jobs/provider-jobs', {
+      headers: { Authorization: `Bearer ${authStore.token}` }
+    })
+    recentJobs.value = response.data
+  } catch (error) {
+    console.error('Error fetching recent jobs:', error)
+  }
+}
+
+// Get status styling
+const getStatusClass = (status) => {
+  const classes = {
+    assigned: 'px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800',
+    printing: 'px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800',
+    completed: 'px-2 py-1 text-xs rounded-full bg-green-100 text-green-800',
+    failed: 'px-2 py-1 text-xs rounded-full bg-red-100 text-red-800',
+    cancelled: 'px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800'
+  }
+  return classes[status] || classes.assigned
+}
 
 const handleLogout = () => {
   signOut()
@@ -208,5 +358,7 @@ const cancelDelete = () => {
 
 onMounted(() => {
   refreshPrinters()
+  fetchJobStats()
+  fetchRecentJobs()
 })
 </script>

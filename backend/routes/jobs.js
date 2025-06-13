@@ -11,6 +11,7 @@ router.get('/', getJobs);
 
 // Get jobs for a service provider
 router.get('/provider-jobs', verifyToken, async (req, res) => {
+//router.get('/provider-jobs', async (req, res) => {
   try {
     const serviceProviderEmail = req.user.email;
 

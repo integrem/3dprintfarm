@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 import LoginPage from '@/components/LoginPage.vue'
 import DashboardPage from '@/components/DashboardPage.vue'
 import ClientDashboard from '@/components/ClientDashboard.vue'
+import ServiceProviderJobs from '../views/ServiceProviderJobs.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -33,7 +34,13 @@ const router = createRouter({
         if (authStore.isClient) return '/client-dashboard'
         return '/'
       }
-    }
+    },
+    {
+    path: '/service-provider/jobs',
+    name: 'ServiceProviderJobs',
+    component: ServiceProviderJobs,
+    meta: { requiresAuth: true, role: 'service-provider' }
+  },
   ]
 })
 
