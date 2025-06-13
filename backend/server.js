@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const bodyParser = require('body-parser');
 const connectDB = require('./db/connect');
 const cors = require('cors');
+const path = require('path');
 
 dotenv.config();
 const app = express();
@@ -18,6 +19,7 @@ app.use(cors({
 // Routes
 app.use('/api/printers', require('./routes/printers'));
 app.use('/api/jobs', require('./routes/jobs'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Start server
 const PORT = process.env.PORT || 3000;
